@@ -2,15 +2,16 @@ pipeline {
     agent any  // Runs the pipeline on any available agent
 
     environment {
-        // Load environment variables from .env file
+        // Define path to .env file
         ENV_VARS = '.env'
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 script {
-                    // Checkout the source code from the Git repository
+                    // Clone the source code from GitHub
                     git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
                 }
             }
@@ -19,13 +20,15 @@ pipeline {
         stage('Check Docker Installation') {
             steps {
                 script {
-                    // Ensure Docker is installed on the Jenkins agent
+                    // Verify that Docker is installed on the Jenkins agent
                     sh '''
-                        if ! command -v docker &> /dev/null; then
+                        if ! command -v docker > /dev/null 2>&1; then
                             echo "Docker not found. Please install Docker."
                             exit 1
+                        else
+                            echo "Docker is installed."
+                            docker --version
                         fi
-                        docker --version  // Check Docker version
                     '''
                 }
             }
@@ -34,13 +37,15 @@ pipeline {
         stage('Check Docker Compose Installation') {
             steps {
                 script {
-                    // Ensure Docker Compose is installed
+                    // Verify that Docker Compose is installed on the Jenkins agent
                     sh '''
-                        if ! command -v docker-compose &> /dev/null; then
+                        if ! command -v docker-compose > /dev/null 2>&1; then
                             echo "Docker Compose not found. Please install Docker Compose."
                             exit 1
+                        else
+                            echo "Docker Compose is installed."
+                            docker-compose --version
                         fi
-                        docker-compose --version  // Check Docker Compose version
                     '''
                 }
             }
@@ -49,14 +54,15 @@ pipeline {
         stage('Check Jenkins Docker Access') {
             steps {
                 script {
-                    // Ensure Jenkins has permission to run Docker commands
+                    // Ensure the Jenkins user (or executing user) has permission to run Docker commands
                     sh '''
-                        if ! groups jenkins | grep -q '\bdocker\b'; then
-                            echo "Jenkins user does not have Docker group permissions."
-                            echo "Please add Jenkins user to Docker group and restart Jenkins."
+                        if ! groups $(whoami) | grep -q "\\bdocker\\b"; then
+                            echo "User $(whoami) does not have Docker group permissions."
+                            echo "Please add user to Docker group and restart Jenkins."
                             exit 1
+                        else
+                            echo "User $(whoami) has Docker group permissions."
                         fi
-                        echo "Jenkins user has Docker permissions."
                     '''
                 }
             }
@@ -65,8 +71,12 @@ pipeline {
         stage('Load Environment Variables') {
             steps {
                 script {
-                    // Load environment variables from the .env file
-                    sh 'export $(cat $WORKSPACE/.env | xargs)'  // Load all env vars from .env file
+                    // Load environment variables from the .env file into the current shell session
+                    sh '''
+                        set -o allexport
+                        source $ENV_VARS
+                        set +o allexport
+                    '''
                 }
             }
         }
@@ -74,8 +84,7 @@ pipeline {
         stage('Validate Docker Compose File') {
             steps {
                 script {
-                    // Validate docker-compose.yml file to ensure it's correct
-                    // This checks the syntax and configuration of the docker-compose file
+                    // Check syntax and validate the structure of docker-compose.yml
                     sh 'docker-compose -f docker-compose.yml config'
                 }
             }
@@ -84,7 +93,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    // Build Docker images using Docker Compose
+                    // Build all Docker images defined in docker-compose.yml
                     sh 'docker-compose -f docker-compose.yml build'
                 }
             }
@@ -93,8 +102,9 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    // Run tests using Docker Compose (replace with your test command)
-                    sh 'docker-compose -f docker-compose.yml run --rm your_service_name npm test'  // Modify as per your service
+                    // Run test commands inside the specified service container
+                    sh 'docker-compose -f docker-compose.yml run --rm your_service_name npm test'  
+                    // NOTE: Replace 'your_service_name' with the correct service name
                 }
             }
         }
@@ -102,7 +112,7 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 script {
-                    // Deploy containers using Docker Compose
+                    // Start all services as background containers
                     sh 'docker-compose -f docker-compose.yml up -d'
                 }
             }
@@ -111,8 +121,16 @@ pipeline {
         stage('Post-Deployment Health Check') {
             steps {
                 script {
-                    // Run a health check after deployment
-                    sh 'curl --fail http://localhost:8080/health || exit 1'
+                    // Wait briefly then perform a health check to verify application is running
+                    sh '''
+                        sleep 10
+                        if ! curl --fail http://localhost:8080/health; then
+                            echo "Health check failed!"
+                            exit 1
+                        else
+                            echo "Health check passed."
+                        fi
+                    '''
                 }
             }
         }
@@ -120,16 +138,16 @@ pipeline {
 
     post {
         success {
-            // Print success message if the pipeline is successful
-            echo 'Pipeline completed successfully!'
+            // Actions to take if the pipeline succeeds
+            echo '✅ Pipeline completed successfully!'
         }
         failure {
-            // Print failure message if the pipeline fails
-            echo 'Pipeline failed. Check the logs above for errors.'
+            // Actions to take if the pipeline fails
+            echo '❌ Pipeline failed. Check the logs above for errors.'
         }
         always {
-            // Any cleanup or final steps that should always run
-            echo 'Cleaning up resources...'
+            // Actions that should always run regardless of pipeline outcome
+            echo '🧹 Cleaning up resources...'
         }
     }
 }
