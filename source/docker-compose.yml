@@ -1,47 +1,99 @@
+version: '3.8'  # Use Docker Compose version 3.8
+
 services:
+  # -----------------------------
+  # PostgreSQL Database Service
+  # -----------------------------
   db:
-    image: postgres:15
+    image: postgres:15  # Use official PostgreSQL 15 image
     ports:
-      - 5432:5432
+      - 5432:5432  # Expose PostgreSQL default port
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=attendance
+      - POSTGRES_USER=${POSTGRES_USER}  # Username from .env file
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # Password from .env
+      - POSTGRES_DB=attendance  # Name of the database
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    command: postgres -c 'max_connections=1000' -c 'shared_buffers=128MB'
+      - postgres_data:/var/lib/postgresql/data  # Persist data to a named volume
+    command: >
+      postgres -c 'max_connections=1000' -c 'shared_buffers=128MB' 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]  # Check DB readiness
       interval: 5s
       timeout: 5s
       retries: 5
 
+  # -----------------------------
+  # Attendance App (Node.js/Next.js)
+  # -----------------------------
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance
-        - JWT_SECRET=K9#mP4$nQ7*vX3jR5@fB1wZ8cA6&hL2yE8%tM5^uN9+gV4kD7!sW3xC9bH4p
-        - NEXTAUTH_SECRET=your-secret-key
-        - NEXTAUTH_URL=http://localhost:3000
-        - NODE_ENV=development
+      context: .  # Use the current directory as the build context
+      dockerfile: Dockerfile  # Specify Dockerfile location
     ports:
-      - 3000:3000
+      - 3000:3000  # Map container port 3000 to host
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/attendance
-      - JWT_SECRET=K9#mP4$nQ7*vX3jR5@fB1wZ8cA6&hL2yE8%tM5^uN9+gV4kD7!sW3xC9bH4p
-      - NEXTAUTH_SECRET=your-secret-key
-      - NEXTAUTH_URL=http://localhost:3000
+      - NODE_ENV=development  # Set Node environment
+      - DATABASE_URL=${DATABASE_URL}  # DB connection string
+      - JWT_SECRET=${JWT_SECRET}  # JWT secret from .env
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}  # NextAuth secret for session encryption
+      - NEXTAUTH_URL=http://localhost:3000  # Base URL for auth
     volumes:
-      - .:/app
-      - /app/node_modules
+      - .:/app  # Mount current project directory
+      - /app/node_modules  # Prevent overwriting node_modules inside container
     depends_on:
       db:
-        condition: service_healthy
-    restart: unless-stopped
+        condition: service_healthy  # Wait for DB to be ready before starting app
+    restart: unless-stopped  # Restart container unless it is explicitly stopped
 
+  # -----------------------------
+  # Prometheus Monitoring
+  # -----------------------------
+  prometheus:
+    image: prom/prometheus  # Official Prometheus image
+    ports:
+      - 9090:9090  # Expose Prometheus web interface
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml  # Mount config file
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # allows the container to understand host.docker.internal inside Ubuntu
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'  # Load config
+
+  # -----------------------------
+  # Grafana Dashboard
+  # -----------------------------
+  grafana:
+    image: grafana/grafana  # Official Grafana image
+    ports:
+      - 3001:3000  # Expose Grafana on host port 3001
+    volumes:
+      - grafana-storage:/var/lib/grafana  # Persist Grafana data (dashboards, config)
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}  # Admin username from .env
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}  # Admin password from .env
+
+  # -----------------------------
+  # Jenkins CI/CD Service
+  # -----------------------------
+  jenkins:
+    build:
+      context: ./jenkins  # Build Jenkins from a Dockerfile in jenkins folder
+      dockerfile: Dockerfile  # Dockerfile to use for Jenkins image
+    ports:
+      - 8080:8080  # Jenkins web UI port
+      - 50000:50000  # Port for Jenkins agent communication
+    volumes:
+      - jenkins_home:/var/jenkins_home  # Persist Jenkins data (jobs, plugins)
+      - /var/run/docker.sock:/var/run/docker.sock  # Allow Jenkins to access Docker engine
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins  # Jenkins will be accessible at /jenkins path
+    restart: unless-stopped  # Restart container unless explicitly stopped
+
+# -----------------------------
+# Named Volumes
+# -----------------------------
 volumes:
-  postgres_data:
-  node_modules:
+  postgres_data:  # Volume to persist PostgreSQL data
+  node_modules:   # Volume to prevent overwriting node_modules
+  grafana-storage:  # Volume for storing Grafana dashboard data
+  jenkins_home:  # Volume for persisting Jenkins configuration and job history
