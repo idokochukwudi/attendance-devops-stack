@@ -1,28 +1,135 @@
 pipeline {
-  agent any
+    agent any  // Runs the pipeline on any available agent
 
-  environment {
-    DOCKER_COMPOSE = 'docker-compose'
-  }
-
-  stages {
-    stage('Build') {
-      steps {
-        sh 'docker-compose build app'
-      }
-    }
-    
-    stage('Test') {
-      steps {
-        // Add your test script if available
-        echo 'No tests specified yet'
-      }
+    environment {
+        // Load environment variables from .env file
+        ENV_VARS = '.env'
     }
 
-    stage('Deploy') {
-      steps {
-        sh 'docker-compose up -d app'
-      }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                script {
+                    // Checkout the source code from the Git repository
+                    git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
+                }
+            }
+        }
+
+        stage('Check Docker Installation') {
+            steps {
+                script {
+                    // Ensure Docker is installed on the Jenkins agent
+                    sh '''
+                        if ! command -v docker &> /dev/null; then
+                            echo "Docker not found. Please install Docker."
+                            exit 1
+                        fi
+                        docker --version  // Check Docker version
+                    '''
+                }
+            }
+        }
+
+        stage('Check Docker Compose Installation') {
+            steps {
+                script {
+                    // Ensure Docker Compose is installed
+                    sh '''
+                        if ! command -v docker-compose &> /dev/null; then
+                            echo "Docker Compose not found. Please install Docker Compose."
+                            exit 1
+                        fi
+                        docker-compose --version  // Check Docker Compose version
+                    '''
+                }
+            }
+        }
+
+        stage('Check Jenkins Docker Access') {
+            steps {
+                script {
+                    // Ensure Jenkins has permission to run Docker commands
+                    sh '''
+                        if ! groups jenkins | grep -q '\bdocker\b'; then
+                            echo "Jenkins user does not have Docker group permissions."
+                            echo "Please add Jenkins user to Docker group and restart Jenkins."
+                            exit 1
+                        fi
+                        echo "Jenkins user has Docker permissions."
+                    '''
+                }
+            }
+        }
+
+        stage('Load Environment Variables') {
+            steps {
+                script {
+                    // Load environment variables from the .env file
+                    sh 'export $(cat $WORKSPACE/.env | xargs)'  // Load all env vars from .env file
+                }
+            }
+        }
+
+        stage('Validate Docker Compose File') {
+            steps {
+                script {
+                    // Validate docker-compose.yml file to ensure it's correct
+                    // This checks the syntax and configuration of the docker-compose file
+                    sh 'docker-compose -f docker-compose.yml config'
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                script {
+                    // Build Docker images using Docker Compose
+                    sh 'docker-compose -f docker-compose.yml build'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    // Run tests using Docker Compose (replace with your test command)
+                    sh 'docker-compose -f docker-compose.yml run --rm your_service_name npm test'  // Modify as per your service
+                }
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                script {
+                    // Deploy containers using Docker Compose
+                    sh 'docker-compose -f docker-compose.yml up -d'
+                }
+            }
+        }
+
+        stage('Post-Deployment Health Check') {
+            steps {
+                script {
+                    // Run a health check after deployment
+                    sh 'curl --fail http://localhost:8080/health || exit 1'
+                }
+            }
+        }
     }
-  }
+
+    post {
+        success {
+            // Print success message if the pipeline is successful
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            // Print failure message if the pipeline fails
+            echo 'Pipeline failed. Check the logs above for errors.'
+        }
+        always {
+            // Any cleanup or final steps that should always run
+            echo 'Cleaning up resources...'
+        }
+    }
 }
