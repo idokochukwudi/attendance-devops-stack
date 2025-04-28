@@ -1,152 +1,165 @@
+// Define environment variables (optional here, but helpful if needed later)
 pipeline {
-    agent any  // Runs the pipeline on any available agent
+    agent any
 
     environment {
-        // Define path to .env file
-        ENV_VARS = '.env'
+        // Define where the .env file is located
+        ENV_FILE = "${WORKSPACE}/.env"
     }
 
     stages {
 
+        // Stage 1: Checkout code from GitHub
         stage('Checkout Code') {
             steps {
                 script {
-                    // Clone the source code from GitHub
                     git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
                 }
             }
         }
 
+        // Stage 2: Check if Docker is installed
         stage('Check Docker Installation') {
             steps {
                 script {
-                    // Verify that Docker is installed on the Jenkins agent
                     sh '''
-                        if ! command -v docker > /dev/null 2>&1; then
-                            echo "Docker not found. Please install Docker."
-                            exit 1
+                        if command -v docker >/dev/null 2>&1; then
+                          echo "Docker is installed."
+                          docker --version
                         else
-                            echo "Docker is installed."
-                            docker --version
+                          echo "Docker is not installed."
+                          exit 1
                         fi
                     '''
                 }
             }
         }
 
+        // Stage 3: Check if Docker Compose is installed
         stage('Check Docker Compose Installation') {
             steps {
                 script {
-                    // Verify that Docker Compose is installed on the Jenkins agent
                     sh '''
-                        if ! command -v docker-compose > /dev/null 2>&1; then
-                            echo "Docker Compose not found. Please install Docker Compose."
-                            exit 1
+                        if command -v docker-compose >/dev/null 2>&1; then
+                          echo "Docker Compose is installed."
+                          docker-compose --version
                         else
-                            echo "Docker Compose is installed."
-                            docker-compose --version
+                          echo "Docker Compose is not installed."
+                          exit 1
                         fi
                     '''
                 }
             }
         }
 
+        // Stage 4: Check if Jenkins user can access Docker
         stage('Check Jenkins Docker Access') {
             steps {
                 script {
-                    // Ensure the Jenkins user (or executing user) has permission to run Docker commands
                     sh '''
-                        if ! groups $(whoami) | grep -q "\\bdocker\\b"; then
-                            echo "User $(whoami) does not have Docker group permissions."
-                            echo "Please add user to Docker group and restart Jenkins."
-                            exit 1
+                        if groups $(whoami) | grep -q docker; then
+                          echo "User $(whoami) has Docker group permissions."
                         else
-                            echo "User $(whoami) has Docker group permissions."
+                          echo "User $(whoami) does not have Docker permissions."
+                          exit 1
                         fi
                     '''
                 }
             }
         }
 
+        // Stage 5: Load Environment Variables from .env
         stage('Load Environment Variables') {
             steps {
                 script {
-                    // Load environment variables from the .env file into the current shell session
+                    // Safely check and load .env variables into Jenkins environment
                     sh '''
-                        set -o allexport
-                        . $ENV_VARS
-                        set +o allexport
+                        cd $WORKSPACE
+                        if [ -f ".env" ]; then
+                          echo "Loading environment variables from .env file..."
+                          set -o allexport
+                          . .env
+                          set +o allexport
+                        else
+                          echo ".env file not found!"
+                          exit 1
+                        fi
                     '''
                 }
             }
         }
 
+        // Stage 6: Validate docker-compose.yml syntax
         stage('Validate Docker Compose File') {
             steps {
                 script {
-                    // Check syntax and validate the structure of docker-compose.yml
-                    sh 'docker-compose -f docker-compose.yml config'
+                    sh '''
+                        cd $WORKSPACE
+                        docker-compose config
+                    '''
                 }
             }
         }
 
+        // Stage 7: Build Docker images
         stage('Build Docker Images') {
             steps {
                 script {
-                    // Build all Docker images defined in docker-compose.yml
-                    sh 'docker-compose -f docker-compose.yml build'
+                    sh '''
+                        cd $WORKSPACE
+                        docker-compose build
+                    '''
                 }
             }
         }
 
+        // Stage 8: Run Tests (optional if you have tests defined)
         stage('Run Tests') {
             steps {
                 script {
-                    // Run test commands inside the specified service container
-                    sh 'docker-compose -f docker-compose.yml run --rm your_service_name npm test'  
-                    // NOTE: Replace 'your_service_name' with the correct service name
+                    sh '''
+                        cd $WORKSPACE
+                        docker-compose run --rm app npm test
+                    '''
                 }
             }
         }
 
+        // Stage 9: Deploy the application
         stage('Deploy Application') {
             steps {
                 script {
-                    // Start all services as background containers
-                    sh 'docker-compose -f docker-compose.yml up -d'
+                    sh '''
+                        cd $WORKSPACE
+                        docker-compose up -d
+                    '''
                 }
             }
         }
 
+        // Stage 10: Post-deployment health check (simple HTTP check example)
         stage('Post-Deployment Health Check') {
             steps {
                 script {
-                    // Wait briefly then perform a health check to verify application is running
                     sh '''
+                        echo "Waiting for application to start..."
                         sleep 10
-                        if ! curl --fail http://localhost:8080/health; then
-                            echo "Health check failed!"
-                            exit 1
-                        else
-                            echo "Health check passed."
-                        fi
+                        curl -f http://localhost:3000/ || (echo "Health check failed!" && exit 1)
                     '''
                 }
             }
         }
     }
 
+    // Post block: Always clean up or report status
     post {
         success {
-            // Actions to take if the pipeline succeeds
             echo '✅ Pipeline completed successfully!'
         }
         failure {
-            // Actions to take if the pipeline fails
             echo '❌ Pipeline failed. Check the logs above for errors.'
         }
         always {
-            // Actions that should always run regardless of pipeline outcome
             echo '🧹 Cleaning up resources...'
         }
     }
