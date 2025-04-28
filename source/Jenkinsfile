@@ -1,15 +1,15 @@
-// Define environment variables (optional here, but helpful if needed later)
+// Jenkins Pipeline for Attendance DevOps Stack
 pipeline {
     agent any
 
     environment {
-        // Define where the .env file is located
+        // Define environment variable for .env location (optional, kept for flexibility)
         ENV_FILE = "${WORKSPACE}/.env"
     }
 
     stages {
 
-        // Stage 1: Checkout code from GitHub
+        // Stage 1: Checkout code from GitHub repository
         stage('Checkout Code') {
             steps {
                 script {
@@ -24,11 +24,11 @@ pipeline {
                 script {
                     sh '''
                         if command -v docker >/dev/null 2>&1; then
-                          echo "Docker is installed."
-                          docker --version
+                            echo "Docker is installed."
+                            docker --version
                         else
-                          echo "Docker is not installed."
-                          exit 1
+                            echo "Docker is not installed."
+                            exit 1
                         fi
                     '''
                 }
@@ -41,50 +41,45 @@ pipeline {
                 script {
                     sh '''
                         if command -v docker-compose >/dev/null 2>&1; then
-                          echo "Docker Compose is installed."
-                          docker-compose --version
+                            echo "Docker Compose is installed."
+                            docker-compose --version
                         else
-                          echo "Docker Compose is not installed."
-                          exit 1
+                            echo "Docker Compose is not installed."
+                            exit 1
                         fi
                     '''
                 }
             }
         }
 
-        // Stage 4: Check if Jenkins user can access Docker
+        // Stage 4: Verify Jenkins user has Docker permissions
         stage('Check Jenkins Docker Access') {
             steps {
                 script {
                     sh '''
                         if groups $(whoami) | grep -q docker; then
-                          echo "User $(whoami) has Docker group permissions."
+                            echo "User $(whoami) has Docker group permissions."
                         else
-                          echo "User $(whoami) does not have Docker permissions."
-                          exit 1
+                            echo "User $(whoami) does not have Docker permissions."
+                            exit 1
                         fi
                     '''
                 }
             }
         }
 
-        // Stage 5: Load Environment Variables from .env
+        // Stage 5: Load Environment Variables from source/.env
         stage('Load Environment Variables') {
             steps {
                 script {
-                    // Safely check and load .env variables into Jenkins environment
-                    sh '''
-                        cd $WORKSPACE
-                        if [ -f ".env" ]; then
-                          echo "Loading environment variables from .env file..."
-                          set -o allexport
-                          . .env
-                          set +o allexport
-                        else
-                          echo ".env file not found!"
-                          exit 1
-                        fi
-                    '''
+                    dir('source') { // Navigate to the source folder
+                        if (fileExists('.env')) {
+                            echo '.env file found. Loading environment variables...'
+                            sh 'set -o allexport; source .env; set +o allexport'
+                        } else {
+                            error('.env file not found in source directory!')
+                        }
+                    }
                 }
             }
         }
@@ -94,7 +89,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        cd $WORKSPACE
+                        cd $WORKSPACE/source
                         docker-compose config
                     '''
                 }
@@ -106,19 +101,19 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        cd $WORKSPACE
+                        cd $WORKSPACE/source
                         docker-compose build
                     '''
                 }
             }
         }
 
-        // Stage 8: Run Tests (optional if you have tests defined)
+        // Stage 8: Run application tests (optional - assumes npm tests are defined)
         stage('Run Tests') {
             steps {
                 script {
                     sh '''
-                        cd $WORKSPACE
+                        cd $WORKSPACE/source
                         docker-compose run --rm app npm test
                     '''
                 }
@@ -130,14 +125,14 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        cd $WORKSPACE
+                        cd $WORKSPACE/source
                         docker-compose up -d
                     '''
                 }
             }
         }
 
-        // Stage 10: Post-deployment health check (simple HTTP check example)
+        // Stage 10: Post-deployment health check
         stage('Post-Deployment Health Check') {
             steps {
                 script {
@@ -151,7 +146,7 @@ pipeline {
         }
     }
 
-    // Post block: Always clean up or report status
+    // Post-build actions
     post {
         success {
             echo '✅ Pipeline completed successfully!'
