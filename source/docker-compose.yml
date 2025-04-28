@@ -88,6 +88,8 @@ services:
     environment:
       - JENKINS_OPTS=--prefix=/jenkins  # Jenkins will be accessible at /jenkins path
     restart: unless-stopped  # Restart container unless explicitly stopped
+    privileged: true         # This tells Docker to run your Jenkins container with full system privileges and as the root user.
+    user: root               # This tells Docker to run your Jenkins container with full system privileges and as the root user.
 
 # -----------------------------
 # Named Volumes
