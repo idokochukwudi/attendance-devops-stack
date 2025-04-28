@@ -74,7 +74,7 @@ pipeline {
                     // Load environment variables from the .env file into the current shell session
                     sh '''
                         set -o allexport
-                        source $ENV_VARS
+                        . $ENV_VARS
                         set +o allexport
                     '''
                 }
