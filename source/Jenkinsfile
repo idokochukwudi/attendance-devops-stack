@@ -75,7 +75,7 @@ pipeline {
                     dir('source') { // Navigate to the source folder
                         if (fileExists('.env')) {
                             echo '.env file found. Loading environment variables...'
-                            sh 'set -o allexport; . .env; set +o allexport'
+                            sh 'set -o allexport; . ${WORKSPACE}/source/.env; set +o allexport'
                         } else {
                             error('.env file not found in source directory!')
                         }
