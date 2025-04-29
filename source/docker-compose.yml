@@ -40,6 +40,7 @@ services:
     volumes:
       - .:/app  # Mount current project directory
       - /app/node_modules  # Prevent overwriting node_modules inside container
+    working_dir: /app              # ✅ Ensure container runs from /app
     depends_on:
       db:
         condition: service_healthy  # Wait for DB to be ready before starting app

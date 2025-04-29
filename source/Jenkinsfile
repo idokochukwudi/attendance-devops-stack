@@ -108,13 +108,13 @@ pipeline {
             }
         }
 
-        // Stage 8: Run application tests (optional - assumes npm tests are defined)
+        // Stage 8: Run application tests (assumes npm tests are defined in package.json)
         stage('Run Tests') {
             steps {
                 script {
                     sh '''
                         cd $WORKSPACE/source
-                        docker-compose run --rm app npm test
+                        docker-compose run --rm --workdir=/app app npm test
                     '''
                 }
             }
