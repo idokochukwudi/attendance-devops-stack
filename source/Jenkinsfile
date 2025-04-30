@@ -2,22 +2,22 @@ pipeline {
     agent any
 
     environment {
-        // Load environment variables from .env
+        // Set the path for the .env file
         DOTENV = "${env.WORKSPACE}/.env"
     }
 
     stages {
         stage('Checkout Repository') {
             steps {
-                git 'https://github.com/idokochukwudi/attendance-devops-stack.git'
+                git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
             }
         }
 
         stage('Export Environment Variables') {
             steps {
                 script {
-                    if (fileExists(".env")) {
-                        def envVars = readFile(".env").split("\n")
+                    if (fileExists(DOTENV)) {
+                        def envVars = readFile(DOTENV).split("\n")
                         for (line in envVars) {
                             if (line.trim() && !line.startsWith("#")) {
                                 def parts = line.split("=")
