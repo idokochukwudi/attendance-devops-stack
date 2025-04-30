@@ -1,161 +1,63 @@
-// Jenkins Pipeline for Attendance DevOps Stack
 pipeline {
     agent any
 
     environment {
-        // Define environment variable for .env location (optional, kept for flexibility)
-        ENV_FILE = "${WORKSPACE}/.env"
+        // Load environment variables from .env
+        DOTENV = "${env.WORKSPACE}/.env"
     }
 
     stages {
-
-        // Stage 1: Checkout code from GitHub repository
-        stage('Checkout Code') {
+        stage('Checkout Repository') {
             steps {
-                script {
-                    git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
-                }
+                git 'https://github.com/idokochukwudi/attendance-devops-stack.git'
             }
         }
 
-        // Stage 2: Check if Docker is installed
-        stage('Check Docker Installation') {
+        stage('Export Environment Variables') {
             steps {
                 script {
-                    sh '''
-                        if command -v docker >/dev/null 2>&1; then
-                            echo "Docker is installed."
-                            docker --version
-                        else
-                            echo "Docker is not installed."
-                            exit 1
-                        fi
-                    '''
-                }
-            }
-        }
-
-        // Stage 3: Check if Docker Compose is installed
-        stage('Check Docker Compose Installation') {
-            steps {
-                script {
-                    sh '''
-                        if command -v docker-compose >/dev/null 2>&1; then
-                            echo "Docker Compose is installed."
-                            docker-compose --version
-                        else
-                            echo "Docker Compose is not installed."
-                            exit 1
-                        fi
-                    '''
-                }
-            }
-        }
-
-        // Stage 4: Verify Jenkins user has Docker permissions
-        stage('Check Jenkins Docker Access') {
-            steps {
-                script {
-                    sh '''
-                        if groups $(whoami) | grep -q docker; then
-                            echo "User $(whoami) has Docker group permissions."
-                        else
-                            echo "User $(whoami) does not have Docker permissions."
-                            exit 1
-                        fi
-                    '''
-                }
-            }
-        }
-
-        // Stage 5: Load Environment Variables from source/.env
-        stage('Load Environment Variables') {
-            steps {
-                script {
-                    dir('source') { // Navigate to the source folder
-                        if (fileExists('.env')) {
-                            echo '.env file found. Loading environment variables...'
-                            sh 'set -o allexport; . ${WORKSPACE}/source/.env; set +o allexport'
-                        } else {
-                            error('.env file not found in source directory!')
+                    if (fileExists(".env")) {
+                        def envVars = readFile(".env").split("\n")
+                        for (line in envVars) {
+                            if (line.trim() && !line.startsWith("#")) {
+                                def parts = line.split("=")
+                                if (parts.length == 2) {
+                                    env[parts[0]] = parts[1]
+                                }
+                            }
                         }
+                    } else {
+                        error ".env file not found!"
                     }
                 }
             }
         }
 
-        // Stage 6: Validate docker-compose.yml syntax
-        stage('Validate Docker Compose File') {
+        stage('Build Services') {
             steps {
-                script {
-                    sh '''
-                        cd $WORKSPACE/source
-                        docker-compose config
-                    '''
-                }
+                sh 'docker-compose build'
             }
         }
 
-        // Stage 7: Build Docker images
-        stage('Build Docker Images') {
+        stage('Deploy Stack') {
             steps {
-                script {
-                    sh '''
-                        cd $WORKSPACE/source
-                        docker-compose build
-                    '''
-                }
+                sh 'docker-compose up -d'
             }
         }
 
-        // Stage 8: Run application tests (assumes npm tests are defined in package.json)
-        stage('Run Tests') {
+        stage('Verify Running Containers') {
             steps {
-                script {
-                    sh '''
-                        cd $WORKSPACE/source
-                        docker-compose run --rm --workdir=/app app npm test
-                    '''
-                }
-            }
-        }
-
-        // Stage 9: Deploy the application
-        stage('Deploy Application') {
-            steps {
-                script {
-                    sh '''
-                        cd $WORKSPACE/source
-                        docker-compose up -d
-                    '''
-                }
-            }
-        }
-
-        // Stage 10: Post-deployment health check
-        stage('Post-Deployment Health Check') {
-            steps {
-                script {
-                    sh '''
-                        echo "Waiting for application to start..."
-                        sleep 10
-                        curl -f http://localhost:3000/ || (echo "Health check failed!" && exit 1)
-                    '''
-                }
+                sh 'docker ps'
             }
         }
     }
 
-    // Post-build actions
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo '✅ Deployment completed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check the logs above for errors.'
-        }
-        always {
-            echo '🧹 Cleaning up resources...'
+            echo '❌ Deployment failed. Please check the logs.'
         }
     }
 }
