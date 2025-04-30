@@ -78,18 +78,19 @@ services:
   # -----------------------------
   jenkins:
     build:
-      context: ./jenkins  # Build Jenkins from a Dockerfile in jenkins folder
-      dockerfile: Dockerfile  # Dockerfile to use for Jenkins image
+      context: ./jenkins               # 📂 Build from the custom Dockerfile inside the ./jenkins folder
+      dockerfile: Dockerfile           # 🧱 Use the specified Dockerfile (optional if named Dockerfile)
+    container_name: jenkins            # 🏷️ Set a fixed name for the container
     ports:
-      - 8080:8080  # Jenkins web UI port
-      - 50000:50000  # Port for Jenkins agent communication
+      - 8080:8080                      # 🌐 Expose Jenkins UI (http://localhost:8080)
+      - 50000:50000                    # 🤖 Port for Jenkins agents (if any)
     volumes:
-      - jenkins_home:/var/jenkins_home  # Persist Jenkins data (jobs, plugins)
-      - /var/run/docker.sock:/var/run/docker.sock  # Allow Jenkins to access Docker engine
+      - jenkins_home:/var/jenkins_home       # 💾 Persist Jenkins configuration and job data
+      - /var/run/docker.sock:/var/run/docker.sock  # 🐳 Allow Jenkins to run Docker commands on host
     environment:
-      - JENKINS_OPTS=--prefix=/jenkins  # Jenkins will be accessible at /jenkins path
-    restart: unless-stopped  # Restart container unless explicitly stopped
-    privileged: true         # This tells Docker to run your Jenkins container with full system privileges and as the root user.
+      - JENKINS_OPTS=--prefix=/jenkins       # 📍 Optional: access via http://localhost:8080/jenkins
+    restart: unless-stopped           # 🔁 Restart container unless explicitly stopped
+    privileged: true                  # 🔐 Allow extended privileges (needed for full Docker access)
     
 
 # -----------------------------
