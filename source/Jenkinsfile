@@ -1,13 +1,16 @@
+// Jenkins Declarative Pipeline starts here
 pipeline {
-    agent any
+    agent any  // This means Jenkins can run the pipeline on any available agent
 
     stages {
+        // Stage 1: Checkout the Git repository
         stage('Checkout Repository') {
             steps {
                 git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
             }
         }
 
+        // Stage 2: Load environment variables from a .env file stored in Jenkins credentials
         stage('Load Environment Variables') {
             steps {
                 withCredentials([file(credentialsId: 'attendance-env', variable: 'DOTENV_FILE')]) {
@@ -26,19 +29,23 @@ pipeline {
             }
         }
 
+        // Stage 3: Build the Docker services using docker-compose
         stage('Build Services') {
             steps {
-                dir('source') { // change 'source' to the actual folder name
-                sh 'docker-compose build'
+                dir('source') { // Ensure you are in the correct folder containing docker-compose.yml
+                    sh 'docker-compose build'
+                }
             }
         }
 
+        // Stage 4: Deploy the Docker stack (containers) in detached mode
         stage('Deploy Stack') {
             steps {
                 sh 'docker-compose up -d'
             }
         }
 
+        // Stage 5: Verify that containers are running
         stage('Verify Running Containers') {
             steps {
                 sh 'docker ps'
@@ -46,6 +53,7 @@ pipeline {
         }
     }
 
+    // Post-build actions
     post {
         success {
             echo '✅ Deployment completed successfully!'
