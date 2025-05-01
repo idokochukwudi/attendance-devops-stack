@@ -28,6 +28,7 @@ pipeline {
 
         stage('Build Services') {
             steps {
+                dir('source') { // change 'source' to the actual folder name
                 sh 'docker-compose build'
             }
         }
