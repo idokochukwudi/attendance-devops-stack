@@ -1,33 +1,26 @@
 pipeline {
     agent any
 
-    environment {
-        // Set the path for the .env file
-        DOTENV = "${env.WORKSPACE}/.env"
-    }
-
     stages {
         stage('Checkout Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/idokochukwudi/attendance-devops-stack.git'
+                git 'https://github.com/idokochukwudi/attendance-devops-stack.git'
             }
         }
 
-        stage('Export Environment Variables') {
+        stage('Load Environment Variables') {
             steps {
-                script {
-                    if (fileExists(DOTENV)) {
-                        def envVars = readFile(DOTENV).split("\n")
+                withCredentials([file(credentialsId: 'attendance-env', variable: 'DOTENV_FILE')]) {
+                    script {
+                        def envVars = readFile(DOTENV_FILE).split("\n")
                         for (line in envVars) {
                             if (line.trim() && !line.startsWith("#")) {
                                 def parts = line.split("=")
                                 if (parts.length == 2) {
-                                    env[parts[0]] = parts[1]
+                                    env[parts[0].trim()] = parts[1].trim()
                                 }
                             }
                         }
-                    } else {
-                        error ".env file not found!"
                     }
                 }
             }
