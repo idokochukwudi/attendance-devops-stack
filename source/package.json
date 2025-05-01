@@ -20,6 +20,7 @@
     "docker:start": "docker run -p 3000:3000 attendance-app"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.5",
     "@hookform/resolvers": "3.9.1",
     "@prisma/client": "5.22.0",
     "@radix-ui/react-alert-dialog": "^1.0.5",
