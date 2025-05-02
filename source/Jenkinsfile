@@ -50,7 +50,8 @@ pipeline {
         // Stage 4: Deploy the Docker stack (containers) in detached mode
         stage('Deploy Stack') {
             steps {
-                sh 'docker-compose up -d'
+                dir('source') { // Ensure you are in the correct folder containing docker-compose.yml
+                    sh 'docker-compose up -d'
             }
         }
 
