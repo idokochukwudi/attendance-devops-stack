@@ -52,6 +52,7 @@ pipeline {
             steps {
                 dir('source') { // Ensure you are in the correct folder containing docker-compose.yml
                     sh 'docker-compose up -d'
+                }
             }
         }
 
