@@ -29,6 +29,15 @@ pipeline {
             }
         }
 
+        stage('Verify Files') {
+            steps {
+                dir('source') {
+                     sh 'ls -la'
+                }
+            }
+        }
+
+
         // Stage 3: Build the Docker services using docker-compose
         stage('Build Services') {
             steps {
