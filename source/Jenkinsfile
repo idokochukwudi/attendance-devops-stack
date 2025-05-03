@@ -51,7 +51,7 @@ pipeline {
         stage('Deploy Stack') {
             steps {
                 dir('source') { // Ensure you are in the correct folder containing docker-compose.yml
-                    sh 'docker-compose up -d'
+                    sh 'docker-compose -f docker-compose-deloy.yml up -d'
                 }
             }
         }

@@ -1,0 +1,84 @@
+version: '3.8'  # Use Docker Compose version 3.8
+
+services:
+  # -----------------------------
+  # PostgreSQL Database Service
+  # -----------------------------
+  db:
+    image: postgres:15  # Use official PostgreSQL 15 image
+    ports:
+      - 5432:5432  # Expose PostgreSQL default port
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}  # Username from .env file
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # Password from .env
+      - POSTGRES_DB=attendance  # Name of the database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist data to a named volume
+    command: >
+      postgres -c 'max_connections=1000' -c 'shared_buffers=128MB' 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]  # Check DB readiness
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------
+  # Attendance App (Node.js/Next.js)
+  # -----------------------------
+  app:
+    build:
+      context: .  # Use the current directory as the build context
+      dockerfile: Dockerfile  # Specify Dockerfile location
+    ports:
+      - 3000:3000  # Map container port 3000 to host
+    environment:
+      - NODE_ENV=development  # Set Node environment
+      - DATABASE_URL=${DATABASE_URL}  # DB connection string
+      - JWT_SECRET=${JWT_SECRET}  # JWT secret from .env
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}  # NextAuth secret for session encryption
+      - NEXTAUTH_URL=http://localhost:3000  # Base URL for auth
+    volumes:
+      - .:/app  # Mount current project directory
+      - /app/node_modules  # Prevent overwriting node_modules inside container
+    working_dir: /app              # ✅ Ensure container runs from /app
+    depends_on:
+      db:
+        condition: service_healthy  # Wait for DB to be ready before starting app
+    restart: unless-stopped  # Restart container unless it is explicitly stopped
+
+  # -----------------------------
+  # Prometheus Monitoring
+  # -----------------------------
+  prometheus:
+    image: prom/prometheus  # Official Prometheus image
+    ports:
+      - 9090:9090  # Expose Prometheus web interface
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml  # Mount config file
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # allows the container to understand host.docker.internal inside Ubuntu
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'  # Load config
+
+  # -----------------------------
+  # Grafana Dashboard
+  # -----------------------------
+  grafana:
+    image: grafana/grafana  # Official Grafana image
+    ports:
+      - 3001:3000  # Expose Grafana on host port 3001
+    volumes:
+      - grafana-storage:/var/lib/grafana  # Persist Grafana data (dashboards, config)
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}  # Admin username from .env
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}  # Admin password from .env
+
+  
+# -----------------------------
+# Named Volumes
+# -----------------------------
+volumes:
+  postgres_data:  # Volume to persist PostgreSQL data
+  node_modules:   # Volume to prevent overwriting node_modules
+  grafana-storage:  # Volume for storing Grafana dashboard data
+  
