@@ -54,7 +54,7 @@ services:
     ports:
       - 9090:9090  # Expose Prometheus web interface
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml  # Mount config file
+      - /home/cloudit/Documents/darey-learning-ubuntu/projects/attendance-app/source/monitoring/prometheus.yml  # Mount config file
     extra_hosts:
       - "host.docker.internal:host-gateway" # allows the container to understand host.docker.internal inside Ubuntu
     command:
