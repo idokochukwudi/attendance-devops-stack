@@ -1,3 +1,8 @@
+environment {
+  COMPOSE_HTTP_TIMEOUT = '200' // or even higher if needed
+}
+
+
 // Jenkins Declarative Pipeline starts here
 pipeline {
     agent any  // This means Jenkins can run the pipeline on any available agent
