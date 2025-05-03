@@ -58,6 +58,7 @@ pipeline {
                 dir('source') {
                     sh '''
                      echo "Starting deployment..."
+                     export COMPOSE_HTTP_TIMEOUT=200
                      docker-compose -f docker-compose-deploy.yml -p deploy down --remove-orphans
                      docker-compose -f docker-compose-deploy.yml -p deploy up -d --remove-orphans
                     '''
