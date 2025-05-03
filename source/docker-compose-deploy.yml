@@ -38,9 +38,9 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}  # NextAuth secret for session encryption
       - NEXTAUTH_URL=http://localhost:3000  # Base URL for auth
     volumes:
-      - .:/app  # Mount current project directory
+      - /home/cloudit/Documents/darey-learning-ubuntu/projects/attendance-app/source:/app  # ✅ Mount full path to project root
       - /app/node_modules  # Prevent overwriting node_modules inside container
-    working_dir: /app              # ✅ Ensure container runs from /app
+    working_dir: /app  # ✅ Ensure container runs from /app
     depends_on:
       db:
         condition: service_healthy  # Wait for DB to be ready before starting app
