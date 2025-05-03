@@ -48,10 +48,14 @@ pipeline {
         }
 
         // Stage 4: Deploy the Docker stack (containers) in detached mode
-        stage('Deploy Stack') {
+        stage('Deploy Services') {
             steps {
-                dir('source') { // Ensure you are in the correct folder containing docker-compose.yml
-                    sh 'docker-compose -f docker-compose-deploy.yml up -d --remove-orphans --force-recreate'
+                dir('source') {
+                    sh '''
+                     echo "Starting deployment..."
+                     docker-compose -f docker-compose-deploy.yml -p deploy down --remove-orphans
+                     docker-compose -f docker-compose-deploy.yml -p deploy up -d --remove-orphans
+                    '''
                 }
             }
         }
