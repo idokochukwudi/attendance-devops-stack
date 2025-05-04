@@ -9,4 +9,10 @@ global:
 scrape_configs:
   - job_name: 'docker'
     static_configs:
-      - targets: ['host.docker.internal:9323']  # Scrape Docker daemon metrics
+      - targets: ['host.docker.internal:9323']
+
+  - job_name: 'jenkins'
+    metrics_path: '/prometheus'
+    static_configs:
+      - targets: ['10.0.2.15:8080']
+
